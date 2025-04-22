@@ -1,9 +1,11 @@
+use std::borrow::Borrow;
+
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
-    alloc::AllocVar,
+    alloc::{AllocVar, AllocationMode},
     fields::{fp::FpVar, FieldVar},
 };
-use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, Namespace, SynthesisError};
 use ark_std::marker::PhantomData;
 use ark_std::{fmt::Debug, Zero};
 
@@ -79,6 +81,37 @@ impl<F: PrimeField> FCircuit<F> for CubicFCircuit<F> {
 pub fn cubic_step_native<F: PrimeField>(z_i: Vec<F>) -> Vec<F> {
     let z = z_i[0];
     vec![z * z * z + z + F::from(5)]
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub struct SummationFCircuit<F: PrimeField> {
+    _f: PhantomData<F>,
+}
+
+#[cfg(test)]
+impl<F: PrimeField> FCircuit<F> for SummationFCircuit<F> {
+    type Params = usize;
+    type ExternalInputs = F;
+    type ExternalInputsVar = FpVar<F>;
+    
+    fn new(_params: Self::Params) -> Result<Self, Error> {
+        Ok(Self { _f: PhantomData })
+    }
+    fn state_len(&self) -> usize {
+        1
+    }
+    fn generate_step_constraints(
+        &self,
+        cs: ConstraintSystemRef<F>,
+        _i: usize,
+        z_i: Vec<FpVar<F>>,
+        external_inputs: Self::ExternalInputsVar,
+    ) -> Result<Vec<FpVar<F>>, SynthesisError> {
+        let z_i = z_i[0].clone();
+        let external_inputs = external_inputs.clone();
+        Ok(vec![&z_i + &external_inputs])
+    }
 }
 
 /// CustomFCircuit is a circuit that has the number of constraints specified in the
